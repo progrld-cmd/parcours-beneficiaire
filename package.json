@@ -1,0 +1,11 @@
+{
+  "name": "parcours-beneficiaire",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "weweb build",
+    "serve": "weweb serve --port 8082"
+  },
+  "devDependencies": {
+    "@weweb/cli": "latest"
+  }
+}
