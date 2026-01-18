@@ -1,6 +1,6 @@
 {
   "name": "parcours-beneficiaire",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "scripts": {
     "build": "weweb build name=parcours-beneficiaire type=element",
     "serve": "weweb serve --port 8082"

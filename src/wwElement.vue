@@ -198,15 +198,19 @@
 </template>
 
 <script>
-import { computed } from 'vue';
+import { computed, toRef } from 'vue';
 
 export default {
   props: {
     uid: { type: String, required: true },
     content: { type: Object, required: true },
+    /* wwEditor:start */
+    wwEditorState: { type: Object, required: true },
+    /* wwEditor:end */
   },
   emits: ['trigger-event'],
   setup(props, { emit }) {
+    const content = toRef(props, 'content');
     // Helper: Get nested value
     const getNestedValue = (obj, path) => {
       if (!obj || !path) return undefined;
@@ -228,7 +232,7 @@ export default {
 
     // Process steps
     const processedSteps = computed(() => {
-      const rawSteps = props.content?.steps;
+      const rawSteps = content.value?.steps;
       if (!Array.isArray(rawSteps) || !rawSteps.length) return [];
 
       return rawSteps.map((item, index) => {
@@ -407,11 +411,11 @@ export default {
 
     // CSS Variables
     const cssVariables = computed(() => ({
-      '--primary-color': props.content?.primaryColor || '#3b82f6',
-      '--secondary-color': props.content?.secondaryColor || '#8b5cf6',
-      '--completed-color': props.content?.completedColor || '#22c55e',
-      '--in-progress-color': props.content?.inProgressColor || '#3b82f6',
-      '--card-radius': props.content?.cardBorderRadius || '16px',
+      '--primary-color': content.value?.primaryColor || '#3b82f6',
+      '--secondary-color': content.value?.secondaryColor || '#8b5cf6',
+      '--completed-color': content.value?.completedColor || '#22c55e',
+      '--in-progress-color': content.value?.inProgressColor || '#3b82f6',
+      '--card-radius': content.value?.cardBorderRadius || '16px',
     }));
 
     return {
