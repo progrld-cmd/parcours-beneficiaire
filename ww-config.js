@@ -13,6 +13,11 @@ export default {
       event: { stepId: '', step: {} },
     },
     {
+      name: 'step-toggle-complete',
+      label: { en: 'On step toggle complete', fr: 'Basculer statut étape' },
+      event: { stepId: '', status: '' },
+    },
+    {
       name: 'step-complete',
       label: { en: 'On step complete', fr: 'Marquer étape terminée' },
       event: { stepId: '', completed: true },
