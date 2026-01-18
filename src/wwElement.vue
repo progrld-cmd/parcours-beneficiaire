@@ -37,6 +37,16 @@
       </div>
     </div>
 
+    <!-- Progress Alert -->
+    <div
+      v-if="progressAlert"
+      class="progress-alert"
+      :class="progressAlert.type"
+    >
+      <span class="alert-icon">{{ progressAlert.icon }}</span>
+      <span class="alert-text">{{ progressAlert.message }}</span>
+    </div>
+
     <!-- Empty State -->
     <div v-if="!processedSteps?.length" class="empty-state">
       Aucune étape dans ce parcours
@@ -50,19 +60,15 @@
         v-for="(step, index) in processedSteps"
         :key="step.id"
         class="timeline-item"
+        :class="getTimelineItemClass(step)"
       >
         <!-- Status Icon -->
         <div class="timeline-icon" :class="getStatusClass(step.status)">
           <svg v-if="step.status === 'terminee'" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
           </svg>
-          <svg v-else-if="step.status === 'en_cours'" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.2"/>
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-          </svg>
+          <span v-else-if="step.status === 'en_cours'" class="pulse-dot"></span>
+          <span v-else class="step-number">{{ step.order }}</span>
         </div>
 
         <!-- Card -->
@@ -71,154 +77,148 @@
           :class="getCardClass(step)"
           @click="handleStepClick(step)"
         >
-          <!-- Order Badge -->
-          <div class="order-badge">{{ step.order }}</div>
+          <!-- Left Border Indicator -->
+          <div class="card-border-indicator" :class="getStatusClass(step.status)"></div>
 
-          <!-- RDV Badge -->
-          <span v-if="step.typeEtape === 'rdv'" class="rdv-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="rdv-icon">
-              <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
-            </svg>
-            {{ content?.rdvBadgeText || 'Rendez-vous' }}
-          </span>
-
-          <!-- Title & Description -->
-          <div class="step-header">
-            <h3 class="step-title">
-              <span v-if="step.status === 'terminee'" class="completed-icon">✅</span>
-              {{ step.title }}
-            </h3>
-            <p v-if="step.description" class="step-description">{{ step.description }}</p>
-          </div>
-
-          <!-- RDV Details -->
-          <div v-if="step.typeEtape === 'rdv'" class="rdv-details">
-            <div class="rdv-info-grid">
-              <div class="rdv-info-item">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="info-icon">
-                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
-                </svg>
-                <span>{{ step.dateRDV }}</span>
-              </div>
-              <div class="rdv-info-item">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="info-icon">
-                  <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-                </svg>
-                <span>{{ step.heureRDV }}</span>
-              </div>
-              <div class="rdv-info-item rdv-info-full">
-                <span v-if="step.modaliteRDV === 'presentiel'" class="modalite-icon">🏢</span>
-                <span v-else class="modalite-icon">💻</span>
-                <span v-if="step.modaliteRDV === 'presentiel'">
-                  {{ content?.presentielText || 'Présentiel' }}
-                  <span v-if="step.lieu" class="lieu-text"> - {{ step.lieu }}</span>
-                </span>
-                <span v-else>{{ content?.distancielText || 'Visioconférence' }}</span>
-              </div>
+          <div class="card-inner">
+            <!-- Type Badge -->
+            <div class="card-badges">
+              <span class="type-badge" :class="getTypeBadgeClass(step)">
+                <span class="badge-icon">{{ getTypeIcon(step) }}</span>
+                {{ getTypeLabel(step) }}
+              </span>
+              <span v-if="step.status === 'terminee'" class="completed-badge">
+                ✅ Terminé
+              </span>
             </div>
 
-            <!-- Join Visio Button -->
-            <button
-              v-if="step.modaliteRDV === 'distanciel' && step.lienVisio"
-              class="join-visio-btn"
-              @click.stop="handleJoinVisio(step)"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
-                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
-              </svg>
-              {{ content?.joinVisioText || 'Rejoindre la visio' }}
-            </button>
-          </div>
+            <!-- Title & Description -->
+            <div class="step-header">
+              <h3 class="step-title">{{ step.title }}</h3>
+              <p v-if="step.description" class="step-description">{{ truncateText(step.description, 100) }}</p>
+            </div>
 
-          <!-- Resource -->
-          <div v-if="step.resource && step.typeEtape !== 'rdv'" class="resource-section">
-            <button
-              class="resource-card"
-              @click.stop="handleResourceClick(step)"
-            >
-              <div class="resource-icon">
-                <svg v-if="step.resource.type === 'video'" viewBox="0 0 24 24" fill="currentColor">
+            <!-- RDV Details -->
+            <div v-if="step.typeEtape === 'rdv'" class="rdv-details" :class="{ 'rdv-completed': step.status === 'terminee' }">
+              <div class="rdv-info">
+                <span class="rdv-date">
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="info-icon">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
+                  </svg>
+                  {{ formatDate(step.dateRDV) }} · {{ step.heureRDV }}
+                </span>
+                <span class="rdv-mode">
+                  <span v-if="step.modaliteRDV === 'presentiel'">🏢 {{ step.lieu || 'Présentiel' }}</span>
+                  <span v-else>💻 Visioconférence</span>
+                </span>
+              </div>
+
+              <!-- Join Visio Button -->
+              <button
+                v-if="step.modaliteRDV === 'distanciel' && step.lienVisio && step.status !== 'terminee'"
+                class="btn btn-primary"
+                @click.stop="handleJoinVisio(step)"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
                   <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
                 </svg>
-                <svg v-else-if="step.resource.type === 'test'" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                </svg>
-              </div>
-              <div class="resource-info">
-                <span class="resource-name">{{ getResourceName(step.resource) }}</span>
-                <span class="resource-meta">
-                  {{ getResourceType(step.resource) }}
-                  <span v-if="step.resource.duree"> • {{ step.resource.duree }}</span>
-                  <span v-if="step.resource.taille"> • {{ step.resource.taille }}</span>
-                </span>
-              </div>
-              <span class="resource-action">
-                <span v-if="step.resource.type === 'test'">
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="action-icon">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                  {{ content?.startTestText || 'Démarrer' }}
-                </span>
-                <span v-else>
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="action-icon">
-                    <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-                  </svg>
-                  {{ content?.openResourceText || 'Ouvrir' }}
-                </span>
-              </span>
-            </button>
-          </div>
-
-          <!-- Instructions -->
-          <div
-            v-if="content?.showInstructions !== false && step.instructions"
-            class="instructions-section"
-          >
-            <span class="instructions-icon">💡</span>
-            <p class="instructions-text">{{ step.instructions }}</p>
-          </div>
-
-          <!-- Footer -->
-          <div class="step-footer">
-            <div class="status-badge" :class="getStatusClass(step.status)">
-              <span v-if="step.status === 'terminee'">✅ Complété</span>
-              <span v-else-if="step.status === 'en_cours'">🔄 En cours</span>
-              <span v-else>⏳ À faire</span>
-              <span v-if="step.completedAt" class="completed-date">le {{ step.completedAt }}</span>
+                Rejoindre la visio
+              </button>
             </div>
 
-            <button
-              v-if="content?.showCompleteButton !== false && step.status !== 'terminee'"
-              class="complete-btn"
-              @click.stop="handleComplete(step)"
+            <!-- Resource -->
+            <div v-if="step.resource && step.typeEtape !== 'rdv'" class="resource-section">
+              <div class="resource-preview" :class="getResourceClass(step.resource)">
+                <div class="resource-icon">
+                  <svg v-if="step.resource.type === 'video'" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                  <svg v-else-if="step.resource.type === 'test'" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l4.59-4.58L18 11l-6 6z"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
+                  </svg>
+                </div>
+                <div class="resource-info">
+                  <span class="resource-name">{{ getResourceName(step.resource) }}</span>
+                  <span class="resource-meta">
+                    {{ getResourceTypeLabel(step.resource) }}
+                    <span v-if="step.resource.duree"> · {{ step.resource.duree }}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Instructions -->
+            <div
+              v-if="content?.showInstructions !== false && step.instructions"
+              class="instructions-section"
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-              {{ content?.completeButtonText || 'Marquer comme complété' }}
-            </button>
+              <span class="instructions-icon">💡</span>
+              <p class="instructions-text">{{ step.instructions }}</p>
+            </div>
+
+            <!-- Action Footer -->
+            <div class="step-footer">
+              <div class="footer-left">
+                <span v-if="step.status === 'terminee' && step.completedAt" class="completed-date">
+                  Terminé le {{ step.completedAt }}
+                </span>
+                <span v-else-if="step.status === 'en_cours'" class="status-label status-active">
+                  🔄 En cours
+                </span>
+                <span v-else class="status-label status-pending">
+                  ⏳ À faire
+                </span>
+              </div>
+
+              <div class="footer-actions">
+                <!-- Completed: Voir le résumé -->
+                <button
+                  v-if="step.status === 'terminee'"
+                  class="btn btn-ghost"
+                  @click.stop="handleStepClick(step)"
+                >
+                  Voir le résumé
+                </button>
+
+                <!-- Resource (not test): Consulter -->
+                <button
+                  v-else-if="step.resource && step.resource.type !== 'test'"
+                  class="btn btn-secondary"
+                  @click.stop="handleResourceClick(step)"
+                >
+                  Consulter les ressources
+                </button>
+
+                <!-- Test: COMMENCER LE TEST -->
+                <button
+                  v-else-if="step.resource && step.resource.type === 'test'"
+                  class="btn btn-test"
+                  @click.stop="handleResourceClick(step)"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                  COMMENCER LE TEST
+                </button>
+
+                <!-- Mark as complete -->
+                <button
+                  v-if="content?.showCompleteButton !== false && step.status === 'en_cours'"
+                  class="btn btn-success"
+                  @click.stop="handleComplete(step)"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                  Marquer terminé
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Motivation Message -->
-    <div
-      v-if="stats.completed > 0 && stats.completed < stats.total"
-      class="motivation-message"
-    >
-      <svg viewBox="0 0 24 24" fill="currentColor" class="motivation-icon">
-        <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
-      </svg>
-      <div>
-        <h3 class="motivation-title">Excellent travail ! 🎉</h3>
-        <p class="motivation-text">
-          Vous avez complété <strong>{{ stats.completed }}</strong> étape{{ stats.completed > 1 ? 's' : '' }} sur {{ stats.total }}.
-          Continuez sur cette lancée !
-        </p>
       </div>
     </div>
 
@@ -227,13 +227,13 @@
       v-if="stats.completed === stats.total && stats.total > 0"
       class="congratulations"
     >
-      <svg viewBox="0 0 24 24" fill="currentColor" class="congrats-icon">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-      </svg>
-      <h2 class="congrats-title">Félicitations ! 🎉</h2>
-      <p class="congrats-text">
-        Vous avez complété toutes les étapes de votre parcours. Bravo pour votre engagement !
-      </p>
+      <div class="congrats-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="congrats-icon">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+      </div>
+      <h2 class="congrats-title">Parcours terminé !</h2>
+      <p class="congrats-text">Bravo pour votre engagement !</p>
     </div>
   </div>
 </template>
@@ -248,18 +248,6 @@ export default {
   },
   emits: ['trigger-event'],
   setup(props, { emit }) {
-    // Helper: Get nested value
-    const getNestedValue = (obj, path) => {
-      if (!obj || !path) return undefined;
-      const keys = String(path).split('.');
-      let value = obj;
-      for (const key of keys) {
-        if (value == null) return undefined;
-        value = value[key];
-      }
-      return value;
-    };
-
     // Normalize resource
     const normalizeResource = (resource) => {
       if (!resource) return null;
@@ -283,7 +271,6 @@ export default {
         const instructions = item?.instructions ?? null;
         const completedAt = item?.completedAt ?? item?.completed_at ?? null;
 
-        // RDV fields
         const modaliteRDV = item?.modaliteRDV ?? item?.modalite_rdv ?? item?.modalite ?? null;
         const dateRDV = item?.dateRDV ?? item?.date_rdv ?? null;
         const heureRDV = item?.heureRDV ?? item?.heure_rdv ?? null;
@@ -327,6 +314,39 @@ export default {
       return Math.round((stats.value.completed / stats.value.total) * 100);
     });
 
+    // Progress Alert
+    const progressAlert = computed(() => {
+      const { completed, total } = stats.value;
+      if (completed === 0 || completed >= total) return null;
+
+      const remaining = total - completed;
+      if (remaining === 1) {
+        return { icon: '🎯', message: 'Excellent ! Plus qu\'une étape !', type: 'alert-final' };
+      } else if (remaining === 2) {
+        return { icon: '💪', message: 'Super ! Plus que 2 étapes !', type: 'alert-progress' };
+      }
+      return { icon: '✨', message: `Bravo ! ${completed} étape${completed > 1 ? 's' : ''} complétée${completed > 1 ? 's' : ''} !`, type: 'alert-progress' };
+    });
+
+    // Truncate text
+    const truncateText = (text, maxLength) => {
+      if (!text || text.length <= maxLength) return text;
+      return text.substring(0, maxLength).trim() + '...';
+    };
+
+    // Format date
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const months = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        return `${day} ${months[month]}`;
+      }
+      return dateStr;
+    };
+
     // Get status class
     const getStatusClass = (status) => {
       switch (status) {
@@ -336,13 +356,48 @@ export default {
       }
     };
 
+    // Get timeline item class
+    const getTimelineItemClass = (step) => {
+      if (step.status === 'terminee') return 'item-completed';
+      if (step.status === 'en_cours') return 'item-active';
+      return 'item-pending';
+    };
+
     // Get card class
     const getCardClass = (step) => {
       const classes = [];
       if (step.status === 'terminee') classes.push('card-completed');
-      else if (step.status === 'en_cours') classes.push('card-in-progress');
+      else if (step.status === 'en_cours') classes.push('card-active');
       if (step.typeEtape === 'rdv' || step.resource) classes.push('card-clickable');
       return classes.join(' ');
+    };
+
+    // Get type badge class
+    const getTypeBadgeClass = (step) => {
+      if (step.typeEtape === 'rdv') return 'badge-rdv';
+      if (step.resource?.type === 'test') return 'badge-test';
+      return 'badge-resource';
+    };
+
+    // Get type icon
+    const getTypeIcon = (step) => {
+      if (step.typeEtape === 'rdv') return '🗓️';
+      if (step.resource?.type === 'test') return '🧠';
+      return '📋';
+    };
+
+    // Get type label
+    const getTypeLabel = (step) => {
+      if (step.typeEtape === 'rdv') return 'Rendez-vous';
+      if (step.resource?.type === 'test') return 'Test';
+      return 'Ressource';
+    };
+
+    // Get resource class
+    const getResourceClass = (resource) => {
+      if (resource?.type === 'test') return 'resource-test';
+      if (resource?.type === 'video') return 'resource-video';
+      return 'resource-doc';
     };
 
     // Resource helpers
@@ -351,10 +406,11 @@ export default {
       return resource?.nom ?? resource?.name ?? 'Ressource';
     };
 
-    const getResourceType = (resource) => {
+    const getResourceTypeLabel = (resource) => {
       if (!resource) return '';
-      const type = resource?.type ?? resource?.format ?? '';
-      return String(type).toUpperCase();
+      const type = resource?.type ?? '';
+      const labels = { test: 'Test', video: 'Vidéo', pdf: 'PDF', document: 'Document' };
+      return labels[type.toLowerCase()] || type.toUpperCase();
     };
 
     // Handlers
@@ -405,22 +461,31 @@ export default {
 
     // CSS Variables
     const cssVariables = computed(() => ({
-      '--primary-color': props.content?.primaryColor || '#3b82f6',
-      '--secondary-color': props.content?.secondaryColor || '#8b5cf6',
-      '--completed-color': props.content?.completedColor || '#22c55e',
-      '--in-progress-color': props.content?.inProgressColor || '#3b82f6',
-      '--card-radius': props.content?.cardBorderRadius || '16px',
+      '--primary-color': props.content?.primaryColor || '#2563eb',
+      '--completed-color': props.content?.completedColor || '#16a34a',
+      '--in-progress-color': props.content?.inProgressColor || '#2563eb',
+      '--test-color': '#dc2626',
+      '--resource-color': '#d97706',
+      '--rdv-color': '#2563eb',
     }));
 
     return {
       processedSteps,
       stats,
       progressPercent,
+      progressAlert,
       cssVariables,
+      truncateText,
+      formatDate,
       getStatusClass,
+      getTimelineItemClass,
       getCardClass,
+      getTypeBadgeClass,
+      getTypeIcon,
+      getTypeLabel,
+      getResourceClass,
       getResourceName,
-      getResourceType,
+      getResourceTypeLabel,
       handleStepClick,
       handleComplete,
       handleResourceClick,
@@ -431,19 +496,35 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+/* =============================================
+   Design System - 8px grid, 4px radius, WCAG AA
+   ============================================= */
+
 .parcours-beneficiaire {
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --radius: 4px;
+  --radius-lg: 8px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
+
   width: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2937;
+  line-height: 1.5;
 }
 
 /* Header */
 .header {
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 24px;
-  margin-bottom: 24px;
-  border-radius: var(--card-radius);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .header-content {
@@ -451,11 +532,11 @@ export default {
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--spacing-md);
 }
 
 .header-title {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: #111827;
   margin: 0;
@@ -463,12 +544,13 @@ export default {
 
 .header-subtitle {
   color: #6b7280;
-  margin: 4px 0 0;
+  font-size: 14px;
+  margin: var(--spacing-xs) 0 0;
 }
 
 .header-stats {
   display: flex;
-  gap: 24px;
+  gap: var(--spacing-lg);
 }
 
 .stat-item {
@@ -478,52 +560,84 @@ export default {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .stat-label {
   font-size: 12px;
   color: #6b7280;
+  margin-top: var(--spacing-xs);
 }
 
 .stat-completed .stat-value { color: var(--completed-color); }
 .stat-in-progress .stat-value { color: var(--in-progress-color); }
 .stat-todo .stat-value { color: #9ca3af; }
 
-/* Progress */
+/* Progress Bar */
 .progress-section {
-  margin-top: 24px;
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid #f3f4f6;
 }
 
 .progress-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .progress-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #374151;
 }
 
 .progress-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--primary-color);
 }
 
 .progress-bar {
-  height: 12px;
+  height: 8px;
   background: #e5e7eb;
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-  border-radius: 6px;
-  transition: width 0.5s ease;
+  background: var(--primary-color);
+  border-radius: var(--radius);
+  transition: width 0.4s ease;
+}
+
+/* Progress Alert */
+.progress-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-lg);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.alert-progress {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.alert-final {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.alert-icon {
+  font-size: 18px;
 }
 
 /* Timeline */
@@ -534,242 +648,298 @@ export default {
 
 .timeline-line {
   position: absolute;
-  left: 11px;
-  top: 24px;
-  bottom: 24px;
+  left: 15px;
+  top: var(--spacing-lg);
+  bottom: var(--spacing-lg);
   width: 2px;
-  background: linear-gradient(to bottom, #d1d5db, transparent);
+  background: #e5e7eb;
 }
 
 .timeline-item {
   position: relative;
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-md);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &.item-completed {
+    opacity: 0.6;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
 }
 
+/* Timeline Icon */
 .timeline-icon {
   position: absolute;
   left: -48px;
-  top: 12px;
-  width: 24px;
-  height: 24px;
-  background: white;
+  top: var(--spacing-md);
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 1;
+  background: #fff;
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
   }
 
-  &.status-completed { color: var(--completed-color); }
-  &.status-in-progress { color: var(--in-progress-color); }
-  &.status-todo { color: #d1d5db; }
+  &.status-completed {
+    background: var(--completed-color);
+    color: #fff;
+  }
+
+  &.status-in-progress {
+    background: var(--in-progress-color);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+  }
+
+  &.status-todo {
+    border: 2px solid #d1d5db;
+    color: #9ca3af;
+  }
+}
+
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+.step-number {
+  font-size: 13px;
 }
 
 /* Card */
 .step-card {
   position: relative;
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: var(--card-radius);
-  padding: 24px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
   transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 
   &.card-completed {
-    background: #f0fdf4;
-    border-color: #bbf7d0;
+    .card-border-indicator {
+      background: var(--completed-color);
+    }
+
+    .step-title, .step-description {
+      color: #6b7280;
+    }
   }
 
-  &.card-in-progress {
-    background: #eff6ff;
-    border-color: #93c5fd;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  &.card-active {
+    border-color: var(--in-progress-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1), var(--shadow-md);
+
+    .card-border-indicator {
+      background: var(--in-progress-color);
+      width: 5px;
+    }
   }
 
   &.card-clickable {
     cursor: pointer;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      box-shadow: var(--shadow-md);
       border-color: var(--primary-color);
     }
   }
 }
 
-.order-badge {
+.card-border-indicator {
   position: absolute;
-  top: -12px;
-  left: -12px;
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #d1d5db;
 }
 
-.rdv-badge {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+.card-inner {
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) var(--spacing-lg);
+}
+
+/* Badges */
+.card-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.type-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-radius: 20px;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+}
 
-  .rdv-icon {
-    width: 14px;
-    height: 14px;
-  }
+.badge-icon {
+  font-size: 14px;
+}
+
+.badge-rdv {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-test {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge-resource {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.completed-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #166534;
+  background: #dcfce7;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius);
 }
 
 /* Step Header */
 .step-header {
-  margin-bottom: 16px;
-  padding-right: 100px;
+  margin-bottom: var(--spacing-md);
 }
 
 .step-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: #111827;
-  margin: 0 0 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  .completed-icon {
-    font-size: 16px;
-  }
+  margin: 0 0 var(--spacing-xs);
 }
 
 .step-description {
-  color: #6b7280;
   font-size: 14px;
-  line-height: 1.5;
+  color: #6b7280;
   margin: 0;
+  line-height: 1.5;
 }
 
 /* RDV Details */
 .rdv-details {
-  background: #dbeafe;
-  border: 2px solid #93c5fd;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
 }
 
-.rdv-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.rdv-details.rdv-completed {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 
-.rdv-info-item {
+.rdv-info {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  font-size: 13px;
   color: #1e40af;
-
-  &.rdv-info-full {
-    grid-column: 1 / -1;
-  }
-
-  .info-icon {
-    width: 16px;
-    height: 16px;
-    color: #3b82f6;
-  }
-
-  .modalite-icon {
-    font-size: 16px;
-  }
-
-  .lieu-text {
-    color: #6b7280;
-  }
 }
 
-.join-visio-btn {
+.rdv-completed .rdv-info {
+  color: #6b7280;
+}
+
+.rdv-date, .rdv-mode {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 12px;
-  padding: 12px;
-  background: linear-gradient(135deg, #3b82f6, #06b6d4);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+  gap: var(--spacing-xs);
+}
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-  }
-
-  .btn-icon {
-    width: 18px;
-    height: 18px;
-  }
+.info-icon {
+  width: 16px;
+  height: 16px;
 }
 
 /* Resource */
 .resource-section {
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-md);
 }
 
-.resource-card {
+.resource-preview {
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 16px;
-  background: #faf5ff;
-  border: 2px solid #e9d5ff;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid;
+}
 
-  &:hover {
-    background: #f3e8ff;
-    border-color: #c084fc;
+.resource-test {
+  background: #fef2f2;
+  border-color: #fecaca;
+
+  .resource-icon {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+}
+
+.resource-video {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+
+  .resource-icon {
+    background: #dbeafe;
+    color: #2563eb;
+  }
+}
+
+.resource-doc {
+  background: #fffbeb;
+  border-color: #fde68a;
+
+  .resource-icon {
+    background: #fef3c7;
+    color: #d97706;
   }
 }
 
 .resource-icon {
-  width: 48px;
-  height: 48px;
-  background: #e9d5ff;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #7c3aed;
   flex-shrink: 0;
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -780,9 +950,9 @@ export default {
 
 .resource-name {
   display: block;
+  font-size: 14px;
   font-weight: 600;
   color: #111827;
-  margin-bottom: 4px;
 }
 
 .resource-meta {
@@ -790,44 +960,25 @@ export default {
   color: #6b7280;
 }
 
-.resource-action {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #7c3aed;
-  color: white;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-
-  .action-icon {
-    width: 16px;
-    height: 16px;
-  }
-}
-
 /* Instructions */
 .instructions-section {
   display: flex;
-  gap: 12px;
-  padding: 16px;
-  background: #fef9c3;
-  border: 2px solid #fde047;
-  border-radius: 12px;
-  margin-bottom: 16px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-md);
 }
 
 .instructions-icon {
-  font-size: 20px;
+  font-size: 18px;
   flex-shrink: 0;
 }
 
 .instructions-text {
-  font-size: 14px;
-  color: #713f12;
-  line-height: 1.5;
+  font-size: 13px;
+  color: #92400e;
   margin: 0;
 }
 
@@ -836,138 +987,159 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid #f3f4f6;
+  gap: var(--spacing-sm);
   flex-wrap: wrap;
-  gap: 12px;
 }
 
-.status-badge {
+.footer-left {
+  font-size: 12px;
+}
+
+.completed-date {
+  color: #9ca3af;
+}
+
+.status-label {
+  font-weight: 500;
+}
+
+.status-active {
+  color: var(--in-progress-color);
+}
+
+.status-pending {
+  color: #9ca3af;
+}
+
+.footer-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 20px;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  white-space: nowrap;
+}
 
-  &.status-completed {
-    background: #dcfce7;
-    color: #166534;
-  }
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
 
-  &.status-in-progress {
-    background: #dbeafe;
-    color: #1e40af;
-  }
+.btn-ghost {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 
-  &.status-todo {
-    background: #f3f4f6;
-    color: #6b7280;
-  }
-
-  .completed-date {
-    font-weight: 400;
-    opacity: 0.8;
+  &:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
   }
 }
 
-.complete-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: var(--completed-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+
+  &:hover {
+    background: #e5e7eb;
+  }
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: #fff;
 
   &:hover {
     filter: brightness(1.1);
-    transform: translateY(-1px);
-  }
-
-  .btn-icon {
-    width: 18px;
-    height: 18px;
   }
 }
 
-/* Motivation */
-.motivation-message {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 32px;
-  padding: 24px;
-  background: linear-gradient(135deg, #f0fdf4, #eff6ff);
-  border: 2px solid #bbf7d0;
-  border-radius: var(--card-radius);
+.btn-success {
+  background: var(--completed-color);
+  color: #fff;
+
+  &:hover {
+    filter: brightness(1.1);
+  }
 }
 
-.motivation-icon {
-  width: 40px;
-  height: 40px;
-  color: var(--completed-color);
-  flex-shrink: 0;
-}
+.btn-test {
+  background: var(--test-color);
+  color: #fff;
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 
-.motivation-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 4px;
-}
-
-.motivation-text {
-  color: #4b5563;
-  margin: 0;
-
-  strong {
-    color: var(--completed-color);
+  &:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
   }
 }
 
 /* Congratulations */
 .congratulations {
   text-align: center;
-  margin-top: 32px;
-  padding: 48px;
-  background: linear-gradient(135deg, var(--completed-color), #059669);
-  border-radius: var(--card-radius);
-  color: white;
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  border: 1px solid #a7f3d0;
+  border-radius: var(--radius-lg);
+}
+
+.congrats-icon-wrap {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--spacing-md);
+  background: var(--completed-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .congrats-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
+  width: 28px;
+  height: 28px;
+  color: #fff;
 }
 
 .congrats-title {
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 700;
-  margin: 0 0 8px;
+  color: #065f46;
+  margin: 0 0 var(--spacing-sm);
 }
 
 .congrats-text {
-  font-size: 16px;
-  opacity: 0.9;
+  font-size: 14px;
+  color: #047857;
   margin: 0;
 }
 
 /* Empty State */
 .empty-state {
   text-align: center;
-  padding: 48px;
+  padding: var(--spacing-xl);
   color: #6b7280;
   background: #f9fafb;
   border: 2px dashed #e5e7eb;
-  border-radius: var(--card-radius);
+  border-radius: var(--radius-lg);
 }
 
 /* Responsive */
@@ -978,7 +1150,7 @@ export default {
 
   .header-stats {
     width: 100%;
-    justify-content: space-around;
+    justify-content: space-between;
   }
 
   .timeline-container {
@@ -987,19 +1159,8 @@ export default {
 
   .timeline-icon {
     left: -40px;
-  }
-
-  .step-header {
-    padding-right: 0;
-  }
-
-  .rdv-badge {
-    position: static;
-    margin-bottom: 12px;
-  }
-
-  .rdv-info-grid {
-    grid-template-columns: 1fr;
+    width: 28px;
+    height: 28px;
   }
 
   .step-footer {
@@ -1007,8 +1168,18 @@ export default {
     align-items: stretch;
   }
 
-  .complete-btn {
+  .footer-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
     justify-content: center;
+  }
+
+  .rdv-info {
+    flex-direction: column;
+    gap: var(--spacing-sm);
   }
 }
 </style>
