@@ -37,9 +37,21 @@
       </div>
     </div>
 
+    <!-- Status Change Alert -->
+    <transition name="alert-fade">
+      <div
+        v-if="statusAlert"
+        class="status-alert"
+        :class="statusAlert.type"
+      >
+        <span class="alert-icon">{{ statusAlert.icon }}</span>
+        <span class="alert-text">{{ statusAlert.message }}</span>
+      </div>
+    </transition>
+
     <!-- Progress Alert -->
     <div
-      v-if="progressAlert"
+      v-if="progressAlert && !statusAlert"
       class="progress-alert"
       :class="progressAlert.type"
     >
@@ -75,11 +87,7 @@
         <div
           class="step-card"
           :class="getCardClass(step)"
-          @click="handleStepClick(step)"
         >
-          <!-- Left Border Indicator -->
-          <div class="card-border-indicator" :class="getStatusClass(step.status)"></div>
-
           <div class="card-inner">
             <!-- Type Badge -->
             <div class="card-badges">
@@ -113,10 +121,10 @@
                 </span>
               </div>
 
-              <!-- Join Visio Button -->
+              <!-- Join Visio Button - Always visible for distanciel -->
               <button
-                v-if="step.modaliteRDV === 'distanciel' && step.lienVisio && step.status !== 'terminee'"
-                class="btn btn-primary"
+                v-if="step.modaliteRDV === 'distanciel' && step.lienVisio"
+                class="btn btn-primary btn-visio"
                 @click.stop="handleJoinVisio(step)"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
@@ -174,27 +182,9 @@
               </div>
 
               <div class="footer-actions">
-                <!-- Completed: Voir le résumé -->
+                <!-- Test: COMMENCER LE TEST (no toggle for tests) -->
                 <button
-                  v-if="step.status === 'terminee'"
-                  class="btn btn-ghost"
-                  @click.stop="handleStepClick(step)"
-                >
-                  Voir le résumé
-                </button>
-
-                <!-- Resource (not test): Consulter -->
-                <button
-                  v-else-if="step.resource && step.resource.type !== 'test'"
-                  class="btn btn-secondary"
-                  @click.stop="handleResourceClick(step)"
-                >
-                  Consulter les ressources
-                </button>
-
-                <!-- Test: COMMENCER LE TEST -->
-                <button
-                  v-else-if="step.resource && step.resource.type === 'test'"
+                  v-if="step.resource && step.resource.type === 'test' && step.status !== 'terminee'"
                   class="btn btn-test"
                   @click.stop="handleResourceClick(step)"
                 >
@@ -204,16 +194,29 @@
                   COMMENCER LE TEST
                 </button>
 
-                <!-- Mark as complete -->
+                <!-- Resource (not test): Consulter -->
                 <button
-                  v-if="content?.showCompleteButton !== false && step.status === 'en_cours'"
-                  class="btn btn-success"
-                  @click.stop="handleComplete(step)"
+                  v-else-if="step.resource && step.resource.type !== 'test' && step.status !== 'terminee'"
+                  class="btn btn-secondary"
+                  @click.stop="handleResourceClick(step)"
                 >
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
+                  Consulter la ressource
+                </button>
+
+                <!-- Toggle completion (not for tests) -->
+                <button
+                  v-if="canToggleStatus(step)"
+                  class="btn"
+                  :class="step.status === 'terminee' ? 'btn-outline-danger' : 'btn-success'"
+                  @click.stop="handleToggleStatus(step)"
+                >
+                  <svg v-if="step.status !== 'terminee'" viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                   </svg>
-                  Marquer terminé
+                  <svg v-else viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                  {{ step.status === 'terminee' ? 'Marquer non terminé' : 'Marquer terminé' }}
                 </button>
               </div>
             </div>
@@ -239,7 +242,7 @@
 </template>
 
 <script>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 export default {
   props: {
@@ -248,6 +251,24 @@ export default {
   },
   emits: ['trigger-event'],
   setup(props, { emit }) {
+    // Status alert for toggle feedback
+    const statusAlert = ref(null);
+    let alertTimeout = null;
+
+    const showStatusAlert = (completed) => {
+      if (alertTimeout) clearTimeout(alertTimeout);
+
+      statusAlert.value = {
+        icon: completed ? '✅' : '↩️',
+        message: completed ? 'Étape marquée comme terminée' : 'Étape marquée comme non terminée',
+        type: completed ? 'alert-success' : 'alert-warning'
+      };
+
+      alertTimeout = setTimeout(() => {
+        statusAlert.value = null;
+      }, 3000);
+    };
+
     // Normalize resource
     const normalizeResource = (resource) => {
       if (!resource) return null;
@@ -328,6 +349,13 @@ export default {
       return { icon: '✨', message: `Bravo ! ${completed} étape${completed > 1 ? 's' : ''} complétée${completed > 1 ? 's' : ''} !`, type: 'alert-progress' };
     });
 
+    // Check if step can be toggled (not a test)
+    const canToggleStatus = (step) => {
+      // Tests cannot be toggled manually
+      if (step.resource?.type === 'test') return false;
+      return true;
+    };
+
     // Truncate text
     const truncateText = (text, maxLength) => {
       if (!text || text.length <= maxLength) return text;
@@ -368,7 +396,6 @@ export default {
       const classes = [];
       if (step.status === 'terminee') classes.push('card-completed');
       else if (step.status === 'en_cours') classes.push('card-active');
-      if (step.typeEtape === 'rdv' || step.resource) classes.push('card-clickable');
       return classes.join(' ');
     };
 
@@ -414,17 +441,17 @@ export default {
     };
 
     // Handlers
-    const handleStepClick = (step) => {
-      emit('trigger-event', {
-        name: 'step-click',
-        event: { stepId: step.id, step: step.originalItem },
-      });
-    };
+    const handleToggleStatus = (step) => {
+      const newCompleted = step.status !== 'terminee';
+      showStatusAlert(newCompleted);
 
-    const handleComplete = (step) => {
       emit('trigger-event', {
-        name: 'step-complete',
-        event: { stepId: step.id, completed: true },
+        name: 'step-status-change',
+        event: {
+          stepId: step.id,
+          completed: newCompleted,
+          message: newCompleted ? 'Étape marquée comme terminée' : 'Étape marquée comme non terminée'
+        },
       });
     };
 
@@ -474,7 +501,9 @@ export default {
       stats,
       progressPercent,
       progressAlert,
+      statusAlert,
       cssVariables,
+      canToggleStatus,
       truncateText,
       formatDate,
       getStatusClass,
@@ -486,8 +515,7 @@ export default {
       getResourceClass,
       getResourceName,
       getResourceTypeLabel,
-      handleStepClick,
-      handleComplete,
+      handleToggleStatus,
       handleResourceClick,
       handleJoinVisio,
     };
@@ -612,6 +640,41 @@ export default {
   transition: width 0.4s ease;
 }
 
+/* Status Alert (for toggle feedback) */
+.status-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-lg);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.alert-success {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.alert-warning {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.alert-fade-enter-active,
+.alert-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.alert-fade-enter-from,
+.alert-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
 /* Progress Alert */
 .progress-alert {
   display: flex;
@@ -664,10 +727,10 @@ export default {
   }
 
   &.item-completed {
-    opacity: 0.6;
+    opacity: 0.7;
 
     &:hover {
-      opacity: 0.8;
+      opacity: 0.85;
     }
   }
 }
@@ -737,47 +800,28 @@ export default {
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
 
+  /* Completed: full green border */
   &.card-completed {
-    .card-border-indicator {
-      background: var(--completed-color);
-    }
+    border: 1px solid var(--completed-color);
 
     .step-title, .step-description {
       color: #6b7280;
     }
   }
 
+  /* Active: blue accent */
   &.card-active {
     border-color: var(--in-progress-color);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1), var(--shadow-md);
-
-    .card-border-indicator {
-      background: var(--in-progress-color);
-      width: 5px;
-    }
   }
 
-  &.card-clickable {
-    cursor: pointer;
-
-    &:hover {
-      box-shadow: var(--shadow-md);
-      border-color: var(--primary-color);
-    }
+  &:hover {
+    box-shadow: var(--shadow-md);
   }
-}
-
-.card-border-indicator {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: #d1d5db;
 }
 
 .card-inner {
-  padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-md);
 }
 
 /* Badges */
@@ -858,7 +902,6 @@ export default {
 .rdv-details.rdv-completed {
   background: #f9fafb;
   border-color: #e5e7eb;
-  padding: var(--spacing-sm) var(--spacing-md);
 }
 
 .rdv-info {
@@ -882,6 +925,11 @@ export default {
 .info-icon {
   width: 16px;
   height: 16px;
+}
+
+.btn-visio {
+  margin-top: var(--spacing-md);
+  width: 100%;
 }
 
 /* Resource */
@@ -1040,17 +1088,6 @@ export default {
   height: 16px;
 }
 
-.btn-ghost {
-  background: transparent;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
-
-  &:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
-  }
-}
-
 .btn-secondary {
   background: #f3f4f6;
   color: #374151;
@@ -1075,6 +1112,17 @@ export default {
 
   &:hover {
     filter: brightness(1.1);
+  }
+}
+
+.btn-outline-danger {
+  background: #fff;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+
+  &:hover {
+    background: #fef2f2;
+    border-color: #dc2626;
   }
 }
 
